@@ -175,6 +175,8 @@ reg  [1 : 0] clash_index;
 reg  [NUM_WRITE_BUFFER - 1 : 0] data_write_sending[1 : 0]; //0 for addr, 1 for data
 wire [1 : 0] data_write_sending_e[1 : 0];
 
+wire [2 : 0] data_write_size[NUM_WRITE_BUFFER - 1 : 0];
+
 wire stall = clash && !(data_write_id_b[clash_e] && bvalid);
 
 //----------data_read----------
@@ -389,8 +391,20 @@ assign awaddr = data_write_sending[0] ? data_waddr_buf[data_write_sending_e[0]] 
                 (data_write_send[1] || data_write_send_addr[1]) ? data_waddr_buf[1] :
                 (data_write_send[2] || data_write_send_addr[2]) ? data_waddr_buf[2] :
                                                                   data_waddr_buf[3] ;
+generate
+    for(i = 0; i < NUM_WRITE_BUFFER; i = i + 1)
+    begin: generate_data_write_size
+        assign data_write_size[i] = data_wstrb_buf[i][0] + data_wstrb_buf[i][1] +
+                                    data_wstrb_buf[i][2] + data_wstrb_buf[i][3] ;
+    end
+endgenerate
+assign awsize  = data_write_sending[0] ? data_write_size[data_write_sending_e[0]] :
+                 (data_write_send[0] || data_write_send_data[0]) ? data_write_size[0] :
+                 (data_write_send[1] || data_write_send_data[1]) ? data_write_size[1] :
+                 (data_write_send[2] || data_write_send_data[2]) ? data_write_size[2] :
+                                                                   data_write_size[3] ;
+
 assign awlen   = 8'd0;
-assign awsize  = 3'd4; //todo
 assign awburst = 2'b01;
 assign awlock  = 2'd0;
 assign awcache = 4'd0;
