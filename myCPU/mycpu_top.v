@@ -8,7 +8,7 @@ module mycpu_top(
 
     //axi
 	//ar
-	output [ 3 : 0] arid,
+    output [ 3 : 0] arid,
     output [31 : 0] araddr,
     output [ 7 : 0] arlen,
     output [ 2 : 0] arsize,
@@ -84,6 +84,7 @@ wire MA_mem_read;
 wire MA_mem_write;
 wire [ 3 : 0] MA_mem_wstrb;
 wire [31 : 0] MA_mem_addr;
+wire [ 2 : 0] MA_mem_size;
 wire [31 : 0] MA_mem_wdata;
 wire [31 : 0] WB_mem_rdata;
 
@@ -184,6 +185,7 @@ wire [31 : 0] inst_addr_done;
 wire data_req;
 wire data_wr;
 wire [31 : 0] data_addr;
+wire [ 2 : 0] data_size;
 wire [ 3 : 0] data_wstrb;
 wire [31 : 0] data_wdata;
 wire [31 : 0] data_rdata;
@@ -208,6 +210,7 @@ cpu_axi_interface cpu_axi_interface(
 	.data_req        (data_req),
     .data_wr         (data_wr),
     .data_addr       (data_addr),
+    .data_size       (data_size),
     .data_wstrb      (data_wstrb),
     .data_wdata      (data_wdata),
     .data_rdata      (data_rdata),
@@ -288,12 +291,14 @@ interlayer interlayer(
     .interlayer_WB_ready (interlayer_WB_ready),
     .MA_mem_wstrb (MA_mem_wstrb),
     .MA_mem_addr  (MA_mem_addr),
+    .MA_mem_size  (MA_mem_size),
     .MA_mem_wdata (MA_mem_wdata),
     .WB_mem_rdata (WB_mem_rdata),
 
 	.data_req        (data_req),
     .data_wr         (data_wr),
     .data_addr       (data_addr),
+    .data_size       (data_size),
     .data_wstrb      (data_wstrb),
     .data_wdata      (data_wdata),
     .data_rdata      (data_rdata),
@@ -554,6 +559,7 @@ MA MA(
     .MA_mem_write (MA_mem_write),
     .MA_mem_wstrb (MA_mem_wstrb),
     .MA_mem_addr  (MA_mem_addr),
+    .MA_mem_size  (MA_mem_size),
     .MA_mem_wdata (MA_mem_wdata),
 
     //interact with EX

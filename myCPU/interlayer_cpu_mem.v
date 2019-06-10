@@ -23,6 +23,7 @@ module interlayer(
     output interlayer_WB_ready,
     input  [ 3 : 0] MA_mem_wstrb,
     input  [31 : 0] MA_mem_addr,
+    input  [ 2 : 0] MA_mem_size,
     input  [31 : 0] MA_mem_wdata,
     output [31 : 0] WB_mem_rdata,
 
@@ -30,6 +31,7 @@ module interlayer(
 	output data_req,
     output data_wr,
     output [31 : 0] data_addr,
+    output [ 2 : 0] data_size,
     output [ 3 : 0] data_wstrb,
     output [31 : 0] data_wdata,
     input  [31 : 0] data_rdata,
@@ -66,6 +68,7 @@ assign WB_mem_rdata        = data_rdata;
 assign data_req   = MA_mem_read || MA_mem_write;
 assign data_wr    = MA_mem_write;
 assign data_addr  = MA_mem_addr;
+assign data_size  = MA_mem_size;
 assign data_wstrb = MA_mem_wstrb;
 assign data_wdata = MA_mem_wdata;
 

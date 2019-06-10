@@ -18,6 +18,7 @@ module cpu_axi_interface #
 	input  data_req,
     input  data_wr,
     input  [31 : 0] data_addr,
+    input  [ 2 : 0] data_size,
     input  [ 3 : 0] data_wstrb,
     input  [31 : 0] data_wdata,
     output [31 : 0] data_rdata,
@@ -138,6 +139,7 @@ end
 
 reg [`READ_STATE_WIDTH - 1 : 0] data_read_state;
 reg [31 : 0] data_read_addr_buf;
+reg [ 2 : 0] data_read_size_buf;
 
 wire data_read_free      = (data_read_state == `READ_STATE_FREE);
 wire data_read_stall     = (data_read_state == `READ_STATE_STALL);
@@ -155,6 +157,7 @@ reg [`WRITE_STATE_WIDTH - 1 : 0] data_write_state[NUM_WRITE_BUFFER - 1 : 0];
 reg [31 : 0] data_waddr_buf[NUM_WRITE_BUFFER - 1 : 0];
 reg [ 3 : 0] data_wstrb_buf[NUM_WRITE_BUFFER - 1 : 0];
 reg [31 : 0] data_wdata_buf[NUM_WRITE_BUFFER - 1 : 0];
+reg [ 2 : 0] data_wsize_buf[NUM_WRITE_BUFFER - 1 : 0];
 
 wire [NUM_WRITE_BUFFER - 1 : 0] data_write_free;
 wire [NUM_WRITE_BUFFER - 1 : 0] data_write_send;
@@ -174,8 +177,6 @@ reg  [1 : 0] clash_index;
 
 reg  [NUM_WRITE_BUFFER - 1 : 0] data_write_sending[1 : 0]; //0 for addr, 1 for data
 wire [1 : 0] data_write_sending_e[1 : 0];
-
-wire [2 : 0] data_write_size[NUM_WRITE_BUFFER - 1 : 0];
 
 wire stall = clash && !(data_write_id_b[clash_e] && bvalid);
 
@@ -216,7 +217,10 @@ end
 always @(posedge clk)
 begin
     if(data_req && !data_wr && (data_read_free || data_read_last_cycle))
+    begin
         data_read_addr_buf <= {3'd0, data_addr[28:0]};
+        data_read_size_buf <= data_size;
+    end
     else ;
 end
 
@@ -299,6 +303,7 @@ generate
             if(data_req && data_wr && acceptable[i])
             begin
                 data_waddr_buf[i] <= {3'd0, data_addr[28:0]};
+                data_wsize_buf[i] <= data_size;
                 data_wstrb_buf[i] <= data_wstrb;
                 data_wdata_buf[i] <= data_wdata;
             end
@@ -340,7 +345,7 @@ end
 assign arid    = (!inst_sending && data_read_send_addr) ? `DATA_READ_ID : `INST_READ_ID;
 assign araddr  = (!inst_sending && data_read_send_addr) ? data_read_addr_buf : inst_addr_buf;
 assign arlen   = 8'd0;
-assign arsize  = 3'd4;
+assign arsize  = (!inst_sending && data_read_send_addr) ? data_read_size_buf : 3'd4;
 assign arburst = 2'b01;
 assign arlock  = 2'd0;
 assign arcache = 4'd0;
@@ -391,18 +396,11 @@ assign awaddr = data_write_sending[0] ? data_waddr_buf[data_write_sending_e[0]] 
                 (data_write_send[1] || data_write_send_addr[1]) ? data_waddr_buf[1] :
                 (data_write_send[2] || data_write_send_addr[2]) ? data_waddr_buf[2] :
                                                                   data_waddr_buf[3] ;
-generate
-    for(i = 0; i < NUM_WRITE_BUFFER; i = i + 1)
-    begin: generate_data_write_size
-        assign data_write_size[i] = data_wstrb_buf[i][0] + data_wstrb_buf[i][1] +
-                                    data_wstrb_buf[i][2] + data_wstrb_buf[i][3] ;
-    end
-endgenerate
-assign awsize  = data_write_sending[0] ? data_write_size[data_write_sending_e[0]] :
-                 (data_write_send[0] || data_write_send_data[0]) ? data_write_size[0] :
-                 (data_write_send[1] || data_write_send_data[1]) ? data_write_size[1] :
-                 (data_write_send[2] || data_write_send_data[2]) ? data_write_size[2] :
-                                                                   data_write_size[3] ;
+assign awsize  = data_write_sending[0] ? data_wsize_buf[data_write_sending_e[0]] :
+                 (data_write_send[0] || data_write_send_data[0]) ? data_wsize_buf[0] :
+                 (data_write_send[1] || data_write_send_data[1]) ? data_wsize_buf[1] :
+                 (data_write_send[2] || data_write_send_data[2]) ? data_wsize_buf[2] :
+                                                                   data_wsize_buf[3] ;
 
 assign awlen   = 8'd0;
 assign awburst = 2'b01;

@@ -15,6 +15,7 @@ module MA(
     output MA_mem_write,
     output [ 3 : 0] MA_mem_wstrb,
     output [31 : 0] MA_mem_addr,
+    output [ 2 : 0] MA_mem_size,
     output [31 : 0] MA_mem_wdata,
 
     //interact with EX
@@ -214,6 +215,16 @@ assign MA_mem_wstrb = ( {4{align_store[4]}} & mem_sw_strb  ) |
                       ( {4{align_store[1]}} & mem_swl_strb ) |
                       ( {4{align_store[0]}} & mem_swr_strb ) ;
 assign MA_mem_addr  = {alu_res[31 : 2], 2'd0};
+wire [2 : 0] load_size  = ( {3{align_load[6]}} & 3'd4 ) |
+                          ( {3{align_load[5] | align_load[4]}} & 3'd1 ) |
+                          ( {3{align_load[3] | align_load[2]}} & 3'd2 ) |
+                          ( {3{align_load[1] | align_load[0]}} & 3'd4 ) ;
+wire [2 : 0] store_size = ({3{align_store[4]}} & 3'd4) |
+                          ({3{align_store[3]}} & 3'd1) |
+                          ({3{align_store[2]}} & 3'd2) |
+                          ({3{align_store[1]}} & 3'd4) |
+                          ({3{align_store[0]}} & 3'd4) ;
+assign MA_mem_size  = mem_read ? load_size : store_size;
 assign MA_mem_wdata = ( {32{align_store[4]}} & mem_sw_data  ) |
                       ( {32{align_store[3]}} & mem_sb_data  ) |
                       ( {32{align_store[2]}} & mem_sh_data  ) |
