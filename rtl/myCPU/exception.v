@@ -12,10 +12,13 @@ module exception(
     input [5 : 0] hw_int,
 
     input MA_leaving,
+    input MA_valid,
     input [6 :  2] MA_exccode,
     input MA_eret,
     input [31 : 0] MA_PC,
     input [31 : 0] MA_alu_res,
+
+    input WB_enable,
 
     output exception,
     output [31 : 0] exception_handler_entry,
@@ -57,7 +60,7 @@ assign epc_out = epc;
 
 wire int_taken = !status_exl && status_ie &&
                  ( ({hw_int[5] | cause_ti, hw_int[4:0], cause_ip[9:8]} & status_im) != 8'd0 );
-assign exception = MA_leaving && (int_taken || (MA_exccode != 5'd0));
+assign exception = WB_enable && MA_valid && (int_taken || (MA_exccode != 5'd0));
 
 assign exception_handler_entry = 32'hbfc0_0380;
 

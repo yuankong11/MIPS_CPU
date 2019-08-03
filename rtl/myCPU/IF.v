@@ -13,7 +13,6 @@ module IF(
     output IF_skip,
     output [31 : 0] IF_mem_addr,
     input  [31 : 0] IF_mem_rdata,
-    input  [31 : 0] IF_mem_addr_done,
 
     //interact with DE
     input  eret,

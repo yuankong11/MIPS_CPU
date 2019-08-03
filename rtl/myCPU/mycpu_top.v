@@ -189,12 +189,11 @@ wire [ 2 : 0] data_size;
 wire [ 3 : 0] data_wstrb;
 wire [31 : 0] data_wdata;
 wire [31 : 0] data_rdata;
-wire data_read_ok;
-wire data_write_full;
+wire data_write_ok;
+wire data_data_ok;
+wire data_busy;
 
-wire [31 : 0] IF_mem_addr_done;
-
-cpu_axi_interface cpu_axi_interface(
+cache cache(
     .clk   (clk),
 	.rst_p (rst_p),
 
@@ -204,7 +203,6 @@ cpu_axi_interface cpu_axi_interface(
     .inst_rdata    (inst_rdata),
     .inst_addr_ok  (inst_addr_ok),
     .inst_data_ok  (inst_data_ok),
-    .inst_addr_buf (IF_mem_addr_done),
 
 	//data sram_like
 	.data_req        (data_req),
@@ -214,8 +212,9 @@ cpu_axi_interface cpu_axi_interface(
     .data_wstrb      (data_wstrb),
     .data_wdata      (data_wdata),
     .data_rdata      (data_rdata),
-    .data_read_ok    (data_read_ok),
-    .data_write_full (data_write_full),
+    .data_write_ok   (data_write_ok),
+    .data_data_ok    (data_data_ok),
+    .data_busy       (data_busy),
 
 	//axi
 	//ar
@@ -295,15 +294,15 @@ interlayer interlayer(
     .MA_mem_wdata (MA_mem_wdata),
     .WB_mem_rdata (WB_mem_rdata),
 
-	.data_req        (data_req),
-    .data_wr         (data_wr),
-    .data_addr       (data_addr),
-    .data_size       (data_size),
-    .data_wstrb      (data_wstrb),
-    .data_wdata      (data_wdata),
-    .data_rdata      (data_rdata),
-    .data_read_ok    (data_read_ok),
-    .data_write_full (data_write_full)
+	.data_req      (data_req),
+    .data_wr       (data_wr),
+    .data_addr     (data_addr),
+    .data_size     (data_size),
+    .data_wstrb    (data_wstrb),
+    .data_wdata    (data_wdata),
+    .data_rdata    (data_rdata),
+    .data_data_ok  (data_data_ok),
+    .data_write_ok (data_write_ok)
     //---MA---
 );
 
@@ -322,7 +321,6 @@ IF IF(
     .IF_skip          (IF_skip),
     .IF_mem_addr      (IF_mem_addr),
     .IF_mem_rdata     (IF_mem_rdata),
-    .IF_mem_addr_done (IF_mem_addr_done),
 
     //interact with DE
     .eret             (DE_EX_eret),
@@ -561,6 +559,7 @@ MA MA(
     .MA_mem_addr  (MA_mem_addr),
     .MA_mem_size  (MA_mem_size),
     .MA_mem_wdata (MA_mem_wdata),
+    .mem_busy     (data_busy),
 
     //interact with EX
     .inst_rd_in (EX_MA_inst_rd),
@@ -670,10 +669,13 @@ exception exception(
     .hw_int (int),
 
     .MA_leaving (MA_leaving),
+    .MA_valid   (MA_valid),
     .MA_exccode (MA_exccode),
     .MA_eret    (MA_eret),
     .MA_PC      (MA_PC),
     .MA_alu_res (MA_alu_res),
+
+    .WB_enable(WB_enable),
 
     .exception (exception_taken),
     .exception_handler_entry (exception_handler_entry),

@@ -51,8 +51,20 @@ reg mem_read;
 reg [6 :  0] align_load;
 reg [31 : 0] WB_PC;
 
+reg [31 : 0] mem_data_reg;
+reg interlayer_ready_reg;
+
+always @(posedge clk)
+begin
+    if(rst_p) interlayer_ready_reg <= 1'd0;
+    else interlayer_ready_reg <= interlayer_ready;
+
+    if(mem_read && interlayer_ready)
+        mem_data_reg <= mem_data;
+end
+
 wire comming = WB_enable && MA_ready;
-wire leaving = valid && (mem_read ? interlayer_ready : 1'd1);
+wire leaving = valid && (mem_read ? interlayer_ready_reg : 1'd1);
 
 assign leaving_out = leaving;
 
@@ -90,27 +102,27 @@ assign rf_wen_out = rf_wen;
 
 wire [3 : 0] alu_res_align = {alu_res[1:0] == 2'b11, alu_res[1:0] == 2'b10,
                               alu_res[1:0] == 2'b01, alu_res[1:0] == 2'b00};
-wire [31 : 0] rf_lw_data  = mem_data;
-wire [31 : 0] rf_lb_data  = ( {32{alu_res_align[2'b00]}} & { {24{mem_data[ 7]}}, mem_data[ 7 :  0] } ) |
-                            ( {32{alu_res_align[2'b01]}} & { {24{mem_data[15]}}, mem_data[15 :  8] } ) |
-                            ( {32{alu_res_align[2'b10]}} & { {24{mem_data[23]}}, mem_data[23 : 16] } ) |
-                            ( {32{alu_res_align[2'b11]}} & { {24{mem_data[31]}}, mem_data[31 : 24] } ) ;
-wire [31 : 0] rf_lbu_data = ( {32{alu_res_align[2'b00]}} & { 24'd0, mem_data[ 7 :  0] } ) |
-                            ( {32{alu_res_align[2'b01]}} & { 24'd0, mem_data[15 :  8] } ) |
-                            ( {32{alu_res_align[2'b10]}} & { 24'd0, mem_data[23 : 16] } ) |
-                            ( {32{alu_res_align[2'b11]}} & { 24'd0, mem_data[31 : 24] } ) ;
-wire [31 : 0] rf_lh_data  = ( {32{~alu_res[1]}} & { {16{mem_data[15]}}, mem_data[15 :  0] } ) |
-                            ( {32{ alu_res[1]}} & { {16{mem_data[31]}}, mem_data[31 : 16] } ) ;
-wire [31 : 0] rf_lhu_data = ( {32{~alu_res[1]}} & { 16'd0, mem_data[15 :  0] } ) |
-                            ( {32{ alu_res[1]}} & { 16'd0, mem_data[31 : 16] } ) ;
-wire [31 : 0] rf_lwl_data = ( {32{alu_res_align[2'b00]}} & { mem_data[ 7 : 0], rf_B[23 : 0] } ) |
-                            ( {32{alu_res_align[2'b01]}} & { mem_data[15 : 0], rf_B[15 : 0] } ) |
-                            ( {32{alu_res_align[2'b10]}} & { mem_data[23 : 0], rf_B[ 7 : 0] } ) |
-                            ( {32{alu_res_align[2'b11]}} & mem_data) ;
-wire [31 : 0] rf_lwr_data = ( {32{alu_res_align[2'b00]}} & mem_data) |
-                            ( {32{alu_res_align[2'b01]}} & { rf_B[31 : 24], mem_data[31 :  8] } ) |
-                            ( {32{alu_res_align[2'b10]}} & { rf_B[31 : 16], mem_data[31 : 16] } ) |
-                            ( {32{alu_res_align[2'b11]}} & { rf_B[31 :  8], mem_data[31 : 24] } ) ;
+wire [31 : 0] rf_lw_data  = mem_data_reg;
+wire [31 : 0] rf_lb_data  = ( {32{alu_res_align[2'b00]}} & { {24{mem_data_reg[ 7]}}, mem_data_reg[ 7 :  0] } ) |
+                            ( {32{alu_res_align[2'b01]}} & { {24{mem_data_reg[15]}}, mem_data_reg[15 :  8] } ) |
+                            ( {32{alu_res_align[2'b10]}} & { {24{mem_data_reg[23]}}, mem_data_reg[23 : 16] } ) |
+                            ( {32{alu_res_align[2'b11]}} & { {24{mem_data_reg[31]}}, mem_data_reg[31 : 24] } ) ;
+wire [31 : 0] rf_lbu_data = ( {32{alu_res_align[2'b00]}} & { 24'd0, mem_data_reg[ 7 :  0] } ) |
+                            ( {32{alu_res_align[2'b01]}} & { 24'd0, mem_data_reg[15 :  8] } ) |
+                            ( {32{alu_res_align[2'b10]}} & { 24'd0, mem_data_reg[23 : 16] } ) |
+                            ( {32{alu_res_align[2'b11]}} & { 24'd0, mem_data_reg[31 : 24] } ) ;
+wire [31 : 0] rf_lh_data  = ( {32{~alu_res[1]}} & { {16{mem_data_reg[15]}}, mem_data_reg[15 :  0] } ) |
+                            ( {32{ alu_res[1]}} & { {16{mem_data_reg[31]}}, mem_data_reg[31 : 16] } ) ;
+wire [31 : 0] rf_lhu_data = ( {32{~alu_res[1]}} & { 16'd0, mem_data_reg[15 :  0] } ) |
+                            ( {32{ alu_res[1]}} & { 16'd0, mem_data_reg[31 : 16] } ) ;
+wire [31 : 0] rf_lwl_data = ( {32{alu_res_align[2'b00]}} & { mem_data_reg[ 7 : 0], rf_B[23 : 0] } ) |
+                            ( {32{alu_res_align[2'b01]}} & { mem_data_reg[15 : 0], rf_B[15 : 0] } ) |
+                            ( {32{alu_res_align[2'b10]}} & { mem_data_reg[23 : 0], rf_B[ 7 : 0] } ) |
+                            ( {32{alu_res_align[2'b11]}} & mem_data_reg) ;
+wire [31 : 0] rf_lwr_data = ( {32{alu_res_align[2'b00]}} & mem_data_reg) |
+                            ( {32{alu_res_align[2'b01]}} & { rf_B[31 : 24], mem_data_reg[31 :  8] } ) |
+                            ( {32{alu_res_align[2'b10]}} & { rf_B[31 : 16], mem_data_reg[31 : 16] } ) |
+                            ( {32{alu_res_align[2'b11]}} & { rf_B[31 :  8], mem_data_reg[31 : 24] } ) ;
 wire [31 : 0] rf_mem_data = ( {32{align_load[6]}} & rf_lw_data  ) |
                             ( {32{align_load[5]}} & rf_lb_data  ) |
                             ( {32{align_load[4]}} & rf_lbu_data ) |

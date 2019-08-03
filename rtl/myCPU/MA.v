@@ -17,6 +17,7 @@ module MA(
     output [31 : 0] MA_mem_addr,
     output [ 2 : 0] MA_mem_size,
     output [31 : 0] MA_mem_wdata,
+    input  mem_busy,
 
     //interact with EX
     input [4 : 0] inst_rd_in,
@@ -102,10 +103,8 @@ reg eret;
 reg mfc0;
 reg mtc0;
 
-wire write_stall = valid && mem_write && !interlayer_ready;
-
 wire doing;
-assign leaving_out = WB_enable && valid && !doing && !write_stall; //to avoid leaving-empty combinational loop
+assign leaving_out = WB_enable && valid && !doing && !(exccode == 5'd0 && mem_write && !interlayer_ready) && !(exccode == 5'd0 && mem_read && mem_busy); //to avoid leaving-empty combinational loop
 
 always @(posedge clk)
 begin
@@ -116,7 +115,7 @@ begin
 end
 
 assign MA_enable = !valid || leaving;
-assign MA_ready  =  valid && !doing && ~empty && !write_stall;
+assign MA_ready  =  valid && !doing && !empty && !(exccode == 5'd0 && mem_write && !interlayer_ready) && !(exccode == 5'd0 && mem_read && mem_busy);
 
 reg [31 : 0] alu_res;
 reg [31 : 0] HI;
@@ -207,23 +206,23 @@ wire [ 3 : 0] mem_sh_strb  = {alu_res[1], alu_res[1], ~alu_res[1], ~alu_res[1]};
 wire [ 3 : 0] mem_swl_strb = {alu_res[1] & alu_res[0], alu_res[1], alu_res[1] | alu_res[0], 1'b1};
 wire [ 3 : 0] mem_swr_strb = {1'b1, ~(alu_res[1] & alu_res[0]), ~alu_res[1], ~(alu_res[1] | alu_res[0])};
 
-assign MA_mem_read  = mem_read && leaving;
-assign MA_mem_write = mem_write && leaving;
+assign MA_mem_read  = mem_read && leaving && exccode == 5'd0;
+assign MA_mem_write = mem_write && valid && !empty && exccode == 5'd0;
 assign MA_mem_wstrb = ( {4{align_store[4]}} & mem_sw_strb  ) |
                       ( {4{align_store[3]}} & mem_sb_strb  ) |
                       ( {4{align_store[2]}} & mem_sh_strb  ) |
                       ( {4{align_store[1]}} & mem_swl_strb ) |
                       ( {4{align_store[0]}} & mem_swr_strb ) ;
 assign MA_mem_addr  = {alu_res[31 : 2], 2'd0};
-wire [2 : 0] load_size  = ( {3{align_load[6]}} & 3'd4 ) |
-                          ( {3{align_load[5] | align_load[4]}} & 3'd1 ) |
-                          ( {3{align_load[3] | align_load[2]}} & 3'd2 ) |
-                          ( {3{align_load[1] | align_load[0]}} & 3'd4 ) ;
-wire [2 : 0] store_size = ({3{align_store[4]}} & 3'd4) |
-                          ({3{align_store[3]}} & 3'd1) |
-                          ({3{align_store[2]}} & 3'd2) |
-                          ({3{align_store[1]}} & 3'd4) |
-                          ({3{align_store[0]}} & 3'd4) ;
+wire [2 : 0] load_size  = ( {3{align_load[6]}} & 3'd2 ) |
+                          ( {3{align_load[5] | align_load[4]}} & 3'd0 ) |
+                          ( {3{align_load[3] | align_load[2]}} & 3'd1 ) |
+                          ( {3{align_load[1] | align_load[0]}} & 3'd2 ) ;
+wire [2 : 0] store_size = ({3{align_store[4]}} & 3'd2) |
+                          ({3{align_store[3]}} & 3'd0) |
+                          ({3{align_store[2]}} & 3'd1) |
+                          ({3{align_store[1]}} & 3'd2) |
+                          ({3{align_store[0]}} & 3'd2) ;
 assign MA_mem_size  = mem_read ? load_size : store_size;
 assign MA_mem_wdata = ( {32{align_store[4]}} & mem_sw_data  ) |
                       ( {32{align_store[3]}} & mem_sb_data  ) |
@@ -233,7 +232,8 @@ assign MA_mem_wdata = ( {32{align_store[4]}} & mem_sw_data  ) |
 
 always @(posedge clk)
 begin
-    if((mul_div[0] || mul_div[1]) && leaving) {HI, LO} <= mul_div_res_in;
+    if(rst_p) {HI, LO} <= 64'd0;
+    else if((mul_div[0] || mul_div[1]) && leaving) {HI, LO} <= mul_div_res_in;
     else if(mt_hi_lo[0] && leaving) LO <= rf_A;
     else if(mt_hi_lo[1] && leaving) HI <= rf_A;
     else ;
