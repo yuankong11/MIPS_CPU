@@ -230,10 +230,32 @@ assign MA_mem_wdata = ( {32{align_store[4]}} & mem_sw_data  ) |
                       ( {32{align_store[1]}} & mem_swl_data ) |
                       ( {32{align_store[0]}} & mem_swr_data ) ;
 
+reg        has_mul_div_res;
+reg [63:0] mul_div_res;
+reg        first_cycle;
+
 always @(posedge clk)
 begin
-    if(rst_p) {HI, LO} <= 64'd0;
-    else if((mul_div[0] || mul_div[1]) && leaving) {HI, LO} <= mul_div_res_in;
+    if (rst_p) has_mul_div_res <= 1'd0;
+    if (rst_p) first_cycle <= 1'd0;
+    else first_cycle <= comming;
+    if (mul_div[1] && !leaving && first_cycle)
+    begin
+        mul_div_res <= mul_div_res_in;
+        has_mul_div_res <= 1'd1;
+    end
+    if (mul_div[0] && !leaving && mul_div_done_in)
+    begin
+        mul_div_res <= mul_div_res_in;
+        has_mul_div_res <= 1'd1;
+    end
+    if (has_mul_div_res && leaving)
+    begin
+        {HI, LO} <= mul_div_res;
+        has_mul_div_res <= 1'd0;
+    end
+    if((mul_div[0] || mul_div[1]) && leaving && !has_mul_div_res) {HI, LO} <= mul_div_res_in;
+
     else if(mt_hi_lo[0] && leaving) LO <= rf_A;
     else if(mt_hi_lo[1] && leaving) HI <= rf_A;
     else ;

@@ -173,7 +173,7 @@ assign inst_addr_ok = inst_req && !icache_busy;
 assign inst_data_ok = icache_valid;
 assign inst_rdata   = icache_data;
 
-assign data_write_ok = data_req && data_wr && (uncacheable_data ? (bvalid && write_dst == 1'b1) : dcache_valid);
+assign data_write_ok = data_wr && (uncacheable_data ? (bvalid && write_dst == 1'b1) : dcache_valid);
 assign data_data_ok  = (dcache_valid || (rvalid && rlast && (read_dst == 2'd1)));
 assign data_rdata    = dcache_valid ? dcache_data : rdata;
 assign data_busy     = dcache_busy;

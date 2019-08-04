@@ -92,7 +92,7 @@ module icache(
     reg [ 1:0] rsRefillIndex;
     reg [31:0] rsAddr;
 
-    assign busy = stage != FREE;
+    assign busy = (stage != FREE);
 
     always @(posedge clk) begin
 
@@ -109,7 +109,7 @@ module icache(
             if (stage == TAG_OK) begin
                 if (iCacheHit) begin
                     //TagOK--(i-cache hitted)-->Write control block.
-                    stage        <= WR_CTRL;
+                    stage <= FREE;
                 end else begin
                     //TagOK--(i-cache miss)-->Select.
                     stage <= SELECT;
@@ -220,6 +220,13 @@ module icache(
     assign LRUWay2GT4 = nxtLRUWay2 > nxtLRUWay4;
     assign LRUWay3GT4 = nxtLRUWay3 > nxtLRUWay4;
 
+    wire LRUWay1GT2_tagok = LRUWay1 > LRUWay2;
+    wire LRUWay1GT3_tagok = LRUWay1 > LRUWay3;
+    wire LRUWay1GT4_tagok = LRUWay1 > LRUWay4;
+    wire LRUWay2GT3_tagok = LRUWay2 > LRUWay3;
+    wire LRUWay2GT4_tagok = LRUWay2 > LRUWay4;
+    wire LRUWay3GT4_tagok = LRUWay3 > LRUWay4;
+
     assign refillIndex = //There is an empty way.
                          (!nxtValidWay1) ? 2'd0 :
                          (!nxtValidWay2) ? 2'd1 :
@@ -236,26 +243,82 @@ module icache(
     assign aRefillLRUWay3 = (refillIndex == 2'd2) ? 2'd0 : nxtLRUWay3 + 2'd1;
     assign aRefillLRUWay4 = (refillIndex == 2'd3) ? 2'd0 : nxtLRUWay4 + 2'd1;
 
-    assign newLRUWay1 = (nxtICacheHitWay1) ?                     2'd0 :
-                        (nxtICacheHitWay2) ? nxtLRUWay1 + ~LRUWay1GT2 :
-                        (nxtICacheHitWay3) ? nxtLRUWay1 + ~LRUWay1GT3 :
-                        (nxtICacheHitWay4) ? nxtLRUWay1 + ~LRUWay1GT4 :
-                                                       aRefillLRUWay1 ;
-    assign newLRUWay2 = (nxtICacheHitWay1) ? nxtLRUWay2 +  LRUWay1GT2 :
-                        (nxtICacheHitWay2) ?                     2'd0 :
-                        (nxtICacheHitWay3) ? nxtLRUWay2 + ~LRUWay2GT3 :
-                        (nxtICacheHitWay4) ? nxtLRUWay2 + ~LRUWay2GT4 :
-                                                       aRefillLRUWay2 ;
-    assign newLRUWay3 = (nxtICacheHitWay1) ? nxtLRUWay3 +  LRUWay1GT3 :
-                        (nxtICacheHitWay2) ? nxtLRUWay3 +  LRUWay2GT3 :
-                        (nxtICacheHitWay3) ?                     2'd0 :
-                        (nxtICacheHitWay4) ? nxtLRUWay3 + ~LRUWay3GT4 :
-                                                       aRefillLRUWay3 ;
-    assign newLRUWay4 = (nxtICacheHitWay1) ? nxtLRUWay4 +  LRUWay1GT4 :
-                        (nxtICacheHitWay2) ? nxtLRUWay4 +  LRUWay2GT4 :
-                        (nxtICacheHitWay3) ? nxtLRUWay4 +  LRUWay3GT4 :
-                        (nxtICacheHitWay4) ?                     2'd0 :
-                                                       aRefillLRUWay4 ;
+    wire [1:0] refillIndex_tagok;
+    wire [1:0] aRefillLRUWay1_tagok;
+    wire [1:0] aRefillLRUWay2_tagok;
+    wire [1:0] aRefillLRUWay3_tagok;
+    wire [1:0] aRefillLRUWay4_tagok;
+
+    assign refillIndex_tagok = //There is an empty way.
+                               (!validWay1) ? 2'd0 :
+                               (!validWay2) ? 2'd1 :
+                               (!validWay3) ? 2'd2 :
+                               (!validWay4) ? 2'd3 :
+                                //All way is valid, need to refill a way.
+                               ( LRUWay1GT2_tagok &&  LRUWay1GT3_tagok && LRUWay1GT4_tagok) ? 2'd0 :
+                               (~LRUWay1GT2_tagok &&  LRUWay2GT3_tagok && LRUWay2GT4_tagok) ? 2'd1 :
+                               (~LRUWay1GT3_tagok && ~LRUWay2GT3_tagok && LRUWay3GT4_tagok) ? 2'd2 :
+                                                                                              2'd3 ;
+
+    assign aRefillLRUWay1_tagok = (refillIndex_tagok == 2'd0) ? 2'd0 : LRUWay1 + 2'd1;
+    assign aRefillLRUWay2_tagok = (refillIndex_tagok == 2'd1) ? 2'd0 : LRUWay2 + 2'd1;
+    assign aRefillLRUWay3_tagok = (refillIndex_tagok == 2'd2) ? 2'd0 : LRUWay3 + 2'd1;
+    assign aRefillLRUWay4_tagok = (refillIndex_tagok == 2'd3) ? 2'd0 : LRUWay4 + 2'd1;
+
+    wire [1:0] newLRUWay1_selete;
+    wire [1:0] newLRUWay2_selete;
+    wire [1:0] newLRUWay3_selete;
+    wire [1:0] newLRUWay4_selete;
+    assign newLRUWay1_selete = (nxtICacheHitWay1) ?                     2'd0 :
+                               (nxtICacheHitWay2) ? nxtLRUWay1 + ~LRUWay1GT2 :
+                               (nxtICacheHitWay3) ? nxtLRUWay1 + ~LRUWay1GT3 :
+                               (nxtICacheHitWay4) ? nxtLRUWay1 + ~LRUWay1GT4 :
+                                                              aRefillLRUWay1 ;
+    assign newLRUWay2_selete = (nxtICacheHitWay1) ? nxtLRUWay2 +  LRUWay1GT2 :
+                               (nxtICacheHitWay2) ?                     2'd0 :
+                               (nxtICacheHitWay3) ? nxtLRUWay2 + ~LRUWay2GT3 :
+                               (nxtICacheHitWay4) ? nxtLRUWay2 + ~LRUWay2GT4 :
+                                                              aRefillLRUWay2 ;
+    assign newLRUWay3_selete = (nxtICacheHitWay1) ? nxtLRUWay3 +  LRUWay1GT3 :
+                               (nxtICacheHitWay2) ? nxtLRUWay3 +  LRUWay2GT3 :
+                               (nxtICacheHitWay3) ?                     2'd0 :
+                               (nxtICacheHitWay4) ? nxtLRUWay3 + ~LRUWay3GT4 :
+                                                              aRefillLRUWay3 ;
+    assign newLRUWay4_selete = (nxtICacheHitWay1) ? nxtLRUWay4 +  LRUWay1GT4 :
+                               (nxtICacheHitWay2) ? nxtLRUWay4 +  LRUWay2GT4 :
+                               (nxtICacheHitWay3) ? nxtLRUWay4 +  LRUWay3GT4 :
+                               (nxtICacheHitWay4) ?                     2'd0 :
+                                                              aRefillLRUWay4 ;
+
+    wire [1:0] newLRUWay1_tagok;
+    wire [1:0] newLRUWay2_tagok;
+    wire [1:0] newLRUWay3_tagok;
+    wire [1:0] newLRUWay4_tagok;
+    assign newLRUWay1_tagok = (iCacheHitWay1) ?                        2'd0 :
+                              (iCacheHitWay2) ? LRUWay1 + ~LRUWay1GT2_tagok :
+                              (iCacheHitWay3) ? LRUWay1 + ~LRUWay1GT3_tagok :
+                              (iCacheHitWay4) ? LRUWay1 + ~LRUWay1GT4_tagok :
+                                                       aRefillLRUWay1_tagok ;
+    assign newLRUWay2_tagok = (iCacheHitWay1) ? LRUWay2 +  LRUWay1GT2_tagok :
+                              (iCacheHitWay2) ?                        2'd0 :
+                              (iCacheHitWay3) ? LRUWay2 + ~LRUWay2GT3_tagok :
+                              (iCacheHitWay4) ? LRUWay2 + ~LRUWay2GT4_tagok :
+                                                       aRefillLRUWay2_tagok ;
+    assign newLRUWay3_tagok = (iCacheHitWay1) ? LRUWay3 +  LRUWay1GT3_tagok :
+                              (iCacheHitWay2) ? LRUWay3 +  LRUWay2GT3_tagok :
+                              (iCacheHitWay3) ?                        2'd0 :
+                              (iCacheHitWay4) ? LRUWay3 + ~LRUWay3GT4_tagok :
+                                                       aRefillLRUWay3_tagok ;
+    assign newLRUWay4_tagok = (iCacheHitWay1) ? LRUWay4 +  LRUWay1GT4_tagok :
+                              (iCacheHitWay2) ? LRUWay4 +  LRUWay2GT4_tagok :
+                              (iCacheHitWay3) ? LRUWay4 +  LRUWay3GT4_tagok :
+                              (iCacheHitWay4) ?                        2'd0 :
+                                                       aRefillLRUWay4_tagok ;
+
+    assign newLRUWay1 = (stage == SELECT) ? newLRUWay1_selete : newLRUWay1_tagok;
+    assign newLRUWay2 = (stage == SELECT) ? newLRUWay2_selete : newLRUWay2_tagok;
+    assign newLRUWay3 = (stage == SELECT) ? newLRUWay3_selete : newLRUWay3_tagok;
+    assign newLRUWay4 = (stage == SELECT) ? newLRUWay4_selete : newLRUWay4_tagok;
 
     //Select or Write control block stage: generate new control state to write back.
     wire        newValidWay1;
@@ -268,15 +331,15 @@ module icache(
     wire [19:0] newTagWay4;
     wire [95:0] newCtrl;
 
-    assign newValidWay1 = (stage == SELECT && refillIndex == 2'd0) ? 1'd1 : nxtValidWay1;
-    assign newValidWay2 = (stage == SELECT && refillIndex == 2'd1) ? 1'd1 : nxtValidWay2;
-    assign newValidWay3 = (stage == SELECT && refillIndex == 2'd2) ? 1'd1 : nxtValidWay3;
-    assign newValidWay4 = (stage == SELECT && refillIndex == 2'd3) ? 1'd1 : nxtValidWay4;
+    assign newValidWay1 = (stage == SELECT && refillIndex == 2'd0) ? 1'd1 : validWay1;
+    assign newValidWay2 = (stage == SELECT && refillIndex == 2'd1) ? 1'd1 : validWay2;
+    assign newValidWay3 = (stage == SELECT && refillIndex == 2'd2) ? 1'd1 : validWay3;
+    assign newValidWay4 = (stage == SELECT && refillIndex == 2'd3) ? 1'd1 : validWay4;
 
-    assign newTagWay1 = (stage == SELECT && refillIndex == 2'd0) ? nxtTag : nxtTagWay1;
-    assign newTagWay2 = (stage == SELECT && refillIndex == 2'd1) ? nxtTag : nxtTagWay2;
-    assign newTagWay3 = (stage == SELECT && refillIndex == 2'd2) ? nxtTag : nxtTagWay3;
-    assign newTagWay4 = (stage == SELECT && refillIndex == 2'd3) ? nxtTag : nxtTagWay4;
+    assign newTagWay1 = (stage == SELECT && refillIndex == 2'd0) ? nxtTag : tagWay1;
+    assign newTagWay2 = (stage == SELECT && refillIndex == 2'd1) ? nxtTag : tagWay2;
+    assign newTagWay3 = (stage == SELECT && refillIndex == 2'd2) ? nxtTag : tagWay3;
+    assign newTagWay4 = (stage == SELECT && refillIndex == 2'd3) ? nxtTag : tagWay4;
 
     assign newCtrl = {1'd0, newValidWay4, newLRUWay4, newTagWay4,
                       1'd0, newValidWay3, newLRUWay3, newTagWay3,
@@ -292,9 +355,9 @@ module icache(
     wire       ctrlBlkRead;
     wire [6:0] ctrlBlkAddr;
 
-    assign ctrlBlkWrite  = (stage == WR_CTRL) | (stage == SELECT);
+    assign ctrlBlkWrite  = (stage == TAG_OK) || (stage == SELECT);
     assign ctrlBlkRead   = ((stage == FREE) && pgOffsetValid);
-    assign ctrlBlkAddr   = (!ctrlBlkRead) ? nxtIndex : preIndex;
+    assign ctrlBlkAddr   = (!ctrlBlkRead) ? index : preIndex;
 
     ctrlBlk iCacheCtrlBlk(
         .clka (                       clk),
@@ -346,7 +409,7 @@ module icache(
     assign dataOutReady          = (stage == TAG_OK && iCacheHit) || (stage == REQ_SND && dataRequestedReady && data2ICacheBlkReady);
 
     assign dataBlkWrite  = (stage == REQ_SND && dataRequestedReady && data2ICacheBlkReady);
-    assign dataBlkRead   = (stage == FREE) & pgOffsetValid;
+    assign dataBlkRead   = (stage == FREE) && pgOffsetValid;
     assign dataBlkAddr   = (!dataBlkRead) ? rsAddr[11:5] : preIndex;
     assign dataBlkWrByteEn = (!dataBlkWrite) ? 16'd0 :
                              //need to refill one way

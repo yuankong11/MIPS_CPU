@@ -47,7 +47,9 @@ begin
     if(rst_p)                 PC <= 32'hbfc0_0000;
     else if(exception)        PC <= exception_handler_entry;
     else if(eret)             PC <= epc;
-    else if(interlayer_ready) PC <= PC_modified_r ? PC_modified_data_r : PC + 32'd4;
+    else if(interlayer_ready) PC <= PC_modified   ? PC_modified_data + 32'd4 :
+                                    PC_modified_r ? PC_modified_data_r       :
+                                                    PC + 32'd4               ;
     else ;
 end
 
@@ -58,7 +60,7 @@ always @(posedge clk)
 begin
     if(rst_p || empty)
         PC_modified_r <= 1'd0;
-    else if(PC_modified)
+    else if(PC_modified && !interlayer_ready)
         PC_modified_r <= 1'd1;
     else if(interlayer_ready || exception)
         PC_modified_r <= 1'd0;
@@ -71,10 +73,12 @@ end
 
 assign IF_skip     = exception || empty;
 assign IF_mem_addr = exception ? exception_handler_entry :
-                     eret      ? epc : PC;
+                     eret      ? epc :
+                     interlayer_ready && PC_modified ? PC_modified_data :
+                                 PC ;
 assign inst_out    = IF_mem_rdata;
 
-assign IF_PC = PC;
+assign IF_PC = interlayer_ready && PC_modified ? PC_modified_data : PC;
 assign exccode_out = (IF_PC[1:0] != 2'd0) ? 5'h04 : 5'h00; //AdEL
 
 endmodule
