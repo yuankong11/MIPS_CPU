@@ -65,10 +65,16 @@ module icache(
     wire        iCacheHitWay4;
     wire        iCacheHit;
 
+    reg [31:0] valid [15:0];
+    wire [31:0] wayValids;
+    wire [3:0] wayValid;
+    wire [31:0] newWayValids;
+
     //stage Write Control & Select reg:
     reg [19:0] nxtTag;
     reg [ 6:0] nxtIndex;
     reg [ 4:0] nxtBlkOffset;
+    reg [31:0] nxtWayValids;
     reg [19:0] nxtTagWay1;
     reg [19:0] nxtTagWay2;
     reg [19:0] nxtTagWay3;
@@ -119,6 +125,7 @@ module icache(
                 nxtTag       <= tag;
                 nxtIndex     <= index;
                 nxtBlkOffset <= blkOffset;
+                nxtWayValids <= wayValids;
 
                 //use for generate control information writed back.
                 nxtTagWay1 <= tagWay1;
@@ -180,10 +187,48 @@ module icache(
     assign tagWay3 = ctrlBlkOut[67:48];
     assign tagWay4 = ctrlBlkOut[91:72];
 
-    assign validWay1 = ctrlBlkOut[22];
-    assign validWay2 = ctrlBlkOut[46];
-    assign validWay3 = ctrlBlkOut[70];
-    assign validWay4 = ctrlBlkOut[94];
+     //control ram
+    wire       ctrlBlkWrite;
+    wire       ctrlBlkRead;
+    wire [6:0] ctrlBlkAddr;
+
+    always @(posedge clk) begin
+        if (!resetn) begin
+            valid[0] <= 16'd0;
+            valid[1] <= 16'd0;
+            valid[2] <= 16'd0;
+            valid[3] <= 16'd0;
+            valid[4] <= 16'd0;
+            valid[5] <= 16'd0;
+            valid[6] <= 16'd0;
+            valid[7] <= 16'd0;
+            valid[8] <= 16'd0;
+            valid[9] <= 16'd0;
+            valid[10] <= 16'd0;
+            valid[11] <= 16'd0;
+            valid[12] <= 16'd0;
+            valid[13] <= 16'd0;
+            valid[14] <= 16'd0;
+            valid[15] <= 16'd0;
+        end else if (ctrlBlkWrite) begin
+            valid[index[6:3]] <= newWayValids;
+        end
+    end
+
+    assign wayValids = valid[index[6:3]];
+    assign wayValid = (index[2:0] == 3'd0) ? wayValids[3:0] :
+                      (index[2:0] == 3'd1) ? wayValids[7:4] :
+                      (index[2:0] == 3'd2) ? wayValids[11:8] :
+                      (index[2:0] == 3'd3) ? wayValids[15:12] :
+                      (index[2:0] == 3'd4) ? wayValids[19:16] :
+                      (index[2:0] == 3'd5) ? wayValids[23:20] :
+                      (index[2:0] == 3'd6) ? wayValids[27:24] :
+                      wayValids[31:28];
+                      
+    assign validWay1 = wayValid[0];
+    assign validWay2 = wayValid[1];
+    assign validWay3 = wayValid[2];
+    assign validWay4 = wayValid[3];
 
     assign LRUWay1 = ctrlBlkOut[21:20];
     assign LRUWay2 = ctrlBlkOut[45:44];
@@ -345,15 +390,22 @@ module icache(
                       1'd0, newValidWay3, newLRUWay3, newTagWay3,
                       1'd0, newValidWay2, newLRUWay2, newTagWay2,
                       1'd0, newValidWay1, newLRUWay1, newTagWay1};
+    
+    wire [3:0] newWayValid;
+
+    assign newWayValid = {newValidWay4, newValidWay3, newValidWay2, newValidWay1};
+    assign newWayValids = (index[2:0] == 3'd0) ? {nxtWayValids[31:4], newWayValid} :
+                          (index[2:0] == 3'd1) ? {nxtWayValids[31:8], newWayValid, nxtWayValids[3:0]} :
+                          (index[2:0] == 3'd2) ? {nxtWayValids[31:12], newWayValid, nxtWayValids[7:0]} :
+                          (index[2:0] == 3'd3) ? {nxtWayValids[31:16], newWayValid, nxtWayValids[11:0]} :
+                          (index[2:0] == 3'd4) ? {nxtWayValids[31:20], newWayValid, nxtWayValids[15:0]} :
+                          (index[2:0] == 3'd5) ? {nxtWayValids[31:24], newWayValid, nxtWayValids[19:0]} :
+                          (index[2:0] == 3'd6) ? {nxtWayValids[31:28], newWayValid, nxtWayValids[23:0]} :
+                          {newWayValid, nxtWayValids[27:0]};
 
     //Request send stage: Prepare the output signal.
     assign addr2Cache2 = {rsAddr[31:5], 5'd0};
     assign addr2Cache2Valid = stage == REQ_SND;
-
-    //control ram
-    wire       ctrlBlkWrite;
-    wire       ctrlBlkRead;
-    wire [6:0] ctrlBlkAddr;
 
     assign ctrlBlkWrite  = (stage == TAG_OK) || (stage == SELECT);
     assign ctrlBlkRead   = ((stage == FREE) && pgOffsetValid);
