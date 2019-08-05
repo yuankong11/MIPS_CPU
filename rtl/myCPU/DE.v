@@ -20,10 +20,13 @@ module DE(
 
     //interact with forward
     input  waiting,
+    output isbr,
     output [ 4 : 0] rf_raddr1,
     output [ 4 : 0] rf_raddr2,
     input  [31 : 0] rf_rdata1,
     input  [31 : 0] rf_rdata2,
+    input  [31 : 0] drf_rdata1,
+    input  [31 : 0] drf_rdata2,
 
     //interact with EX
     output [4 : 0] rf_waddr_out,
@@ -180,12 +183,14 @@ assign imm_16_out = inst_imm_16;
 assign rf_A_out   = rf_rdata1;
 assign rf_B_out   = rf_rdata2;
 
-wire rf_equal = (rf_rdata1 == rf_rdata2);
-wire rf_rdata1_ez  = (rf_rdata1 == 32'd0);
-wire rf_rdata1_gtz = ~rf_rdata1[31] & ~rf_rdata1_ez;
-wire rf_rdata1_gez = ~rf_rdata1[31];
-wire rf_rdata1_ltz =  rf_rdata1[31];
-wire rf_rdata1_lez =  rf_rdata1[31] |  rf_rdata1_ez;
+assign isbr = jump_reg_in || jump_imm_in || |branch_in;
+
+wire rf_equal = (drf_rdata1 == drf_rdata2);
+wire rf_rdata1_ez  = (drf_rdata1 == 32'd0);
+wire rf_rdata1_gtz = ~drf_rdata1[31] & ~rf_rdata1_ez;
+wire rf_rdata1_gez = ~drf_rdata1[31];
+wire rf_rdata1_ltz =  drf_rdata1[31];
+wire rf_rdata1_lez =  drf_rdata1[31] |  rf_rdata1_ez;
 wire branch_taken  = (branch_in[0] & (inst_opcode[26] ^ rf_equal)) |
                      (branch_in[1] & rf_rdata1_gtz) |
                      (branch_in[2] & rf_rdata1_gez) |
@@ -194,7 +199,7 @@ wire branch_taken  = (branch_in[0] & (inst_opcode[26] ^ rf_equal)) |
 assign PC_modified = (jump_reg_in || jump_imm_in || branch_taken) && leaving;
 
 wire [31 : 0] DE_PC_inc = DE_PC + 32'd4;
-wire [31 : 0] PC_jump_reg = rf_rdata1[31 : 0];
+wire [31 : 0] PC_jump_reg = drf_rdata1[31 : 0];
 wire [31 : 0] PC_jump_imm = { DE_PC_inc[31 : 28], inst_imm_26, 2'd0 };
 wire [31 : 0] PC_branch   = ( DE_PC_inc + { {14{inst_imm_16[15]}}, inst_imm_16, 2'd0 } );
 assign PC_modified_data = ( {32{jump_reg_in} } & PC_jump_reg) |

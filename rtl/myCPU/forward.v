@@ -36,7 +36,8 @@ module forward(
     output [31 : 0] rdata1,
     output [31 : 0] rdata2,
 
-    output waiting
+    output waiting,
+    input isbr
 );
 
 assign rf_raddr1 = raddr1;
@@ -58,6 +59,7 @@ assign clash_WB[1] = WB_valid && WB_rf_wen && (raddr1 != 5'd0) && (raddr1 == WB_
 assign clash_WB[2] = WB_valid && WB_rf_wen && (raddr2 != 5'd0) && (raddr2 == WB_rf_waddr);
 assign clash_WB[0] = clash_WB[1] || clash_WB[2];
 
+wire waiting_br      = (clash_EX[0] || clash_MA[0] || clash_WB[0]) && isbr;
 wire waiting_EX_load = EX_mem_read && clash_EX[0]; //2 cycles, fetch from WB_wf_wdata
 wire waiting_MA_load = MA_mem_read && clash_MA[0]; //1 cycle, fetch from WB_wf_wdata
 wire waiting_EX_mf   = EX_mf       && clash_EX[0]; //1 cycle, fetch from MA_alu_res
@@ -80,7 +82,7 @@ begin
     else wait_cycle <= wait_cycle - {1'b0, MA_leaving};
 end
 
-assign waiting = !empty && (waiting_EX_load || waiting_MA_load || waiting_EX_mf || (wait_cycle != 2'd0) || waiting_WB);
+assign waiting = !empty && (waiting_br || waiting_EX_load || waiting_MA_load || waiting_EX_mf || (wait_cycle != 2'd0) || waiting_WB);
 
 assign rdata1 = clash_EX[1] ? EX_alu_res  :
                 clash_MA[1] ? MA_alu_res  :

@@ -110,7 +110,10 @@ wire [ 4 : 0] rf_raddr1;
 wire [ 4 : 0] rf_raddr2;
 wire [31 : 0] rf_rdata1;
 wire [31 : 0] rf_rdata2;
+wire [31 : 0] drf_rdata1;
+wire [31 : 0] drf_rdata2;
 wire forward_waiting;
+wire forward_isbr;
 wire [ 4 : 0] forward_raddr1;
 wire [ 4 : 0] forward_raddr2;
 wire [31 : 0] forward_rdata1;
@@ -355,11 +358,14 @@ DE DE(
     .exccode_in       (IF_DE_exccode),
 
     //interact with forward
-    .waiting   (forward_waiting),
-    .rf_raddr1 (forward_raddr1),
-    .rf_raddr2 (forward_raddr2),
-    .rf_rdata1 (forward_rdata1),
-    .rf_rdata2 (forward_rdata2),
+    .waiting    (forward_waiting),
+    .isbr       (forward_isbr),
+    .rf_raddr1  (forward_raddr1),
+    .rf_raddr2  (forward_raddr2),
+    .rf_rdata1  (forward_rdata1),
+    .rf_rdata2  (forward_rdata2),
+    .drf_rdata1 (rf_rdata1),
+    .drf_rdata2 (rf_rdata2),
 
     //interact with EX
     .rf_waddr_out     (DE_EX_rf_waddr),
@@ -433,7 +439,8 @@ forward forward(
     .rdata1 (forward_rdata1),
     .rdata2 (forward_rdata2),
 
-    .waiting (forward_waiting)
+    .waiting (forward_waiting),
+    .isbr    (forward_isbr)
 );
 
 rf rf
