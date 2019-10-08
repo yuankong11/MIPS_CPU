@@ -433,10 +433,10 @@ module dcache(
     always @(posedge clk)
     begin
         if(stage == TAG_OK)
-            dataWriteBackReg <= (refillIndex == 2'd0 && dataWay[0]) ||
-                                (refillIndex == 2'd1 && dataWay[1]) ||
-                                (refillIndex == 2'd2 && dataWay[2]) ||
-                                (refillIndex == 2'd3 && dataWay[3]) ;
+            dataWriteBackReg <= (refillIndex == 2'd0 & dataWay[0]) ||
+                                (refillIndex == 2'd1 & dataWay[1]) ||
+                                (refillIndex == 2'd2 & dataWay[2]) ||
+                                (refillIndex == 2'd3 & dataWay[3]) ;
     end
     assign dataWriteBack = dataWriteBackReg;
     wire [19:0] writeBackTag = refillIndex == 2'd0 ? nxtTagWay1 :
